@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Лабораторна робота №3 — Визначення прискорення вільного падіння за допомогою математичного маятника</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f4efe2; --paper2:#efe8d6; --ink:#182742; --ink-soft:#3c4a66;
+  --blue:#2b54a6; --grid:rgba(38,76,150,.09); --grid2:rgba(38,76,150,.16);
+  --red:#c03a26; --amber:#ffc75e; --panel:#0d1524; --ok:#2e7d4f;
+  --disp:'Unbounded',sans-serif; --body:'IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',monospace; --hand:'Caveat',cursive;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--body); color:var(--ink); background-color:var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(var(--grid2) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid2) 1px,transparent 1px);
+  background-size:8px 8px,8px 8px,40px 40px,40px 40px;
+  font-size:16px; line-height:1.6; overflow-x:hidden;
+}
+::selection{background:var(--red);color:var(--paper)}
+.noise{position:fixed;inset:-100%;z-index:60;pointer-events:none;opacity:.05;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  animation:grain 9s steps(8) infinite;}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(2%,−1%)}50%{transform:translate(-1%,2%)}75%{transform:translate(1%,1%)}100%{transform:translate(0,0)}}
+
+.rail{position:fixed;left:14px;top:0;bottom:0;width:26px;z-index:40;pointer-events:none}
+.rail .tape{position:absolute;left:8px;top:0;bottom:0;width:12px;
+  background:repeating-linear-gradient(to bottom,rgba(24,39,66,.55) 0 1px,transparent 1px 10px),
+             repeating-linear-gradient(to bottom,rgba(24,39,66,.8) 0 2px,transparent 2px 50px);
+  border-right:1.5px solid rgba(24,39,66,.55)}
+.rail .marker{position:absolute;left:0;top:0;width:26px;transition:top .12s linear}
+.rail .marker::before{content:"";position:absolute;left:2px;top:-6px;border:6px solid transparent;border-left:8px solid var(--red)}
+.rail .read{position:absolute;left:34px;top:-9px;font:600 10px var(--mono);color:var(--red);white-space:nowrap;background:var(--paper);padding:1px 5px;border:1px solid var(--red)}
+.rail .cap{position:absolute;bottom:10px;left:-4px;writing-mode:vertical-rl;font:500 10px var(--mono);letter-spacing:.25em;color:var(--ink-soft);opacity:.7}
+@media(max-width:1100px){.rail{display:none}}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:10px clamp(18px,4vw,56px);border-bottom:1.5px solid var(--ink);background:rgba(244,239,226,.9);position:relative;z-index:20}
+.topbar .live{display:flex;align-items:center;gap:9px;font:600 11px var(--mono);letter-spacing:.22em;color:var(--red)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--red);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(192,58,38,.45)}55%{box-shadow:0 0 0 8px rgba(192,58,38,0)}}
+.topbar .right{font:500 11px var(--mono);letter-spacing:.14em;color:var(--ink-soft)}
+
+.wrap{max-width:1240px;margin:0 auto;padding:0 clamp(18px,4vw,56px) 60px;position:relative;z-index:10}
+
+.protocol{padding:clamp(30px,5vw,60px) 0 26px;border-bottom:2px solid var(--ink);position:relative}
+.proto-row{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.form-code{font:500 11px var(--mono);letter-spacing:.24em;color:var(--ink-soft)}
+.form-code b{color:var(--red)}
+.barcode{display:flex;align-items:flex-end;gap:2px;height:26px}
+.barcode i{display:block;background:var(--ink);width:2px}
+.proto-grid{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:30px;margin-top:26px;align-items:start}
+@media(max-width:800px){.proto-grid{grid-template-columns:1fr}}
+h1 .kicker{font:600 clamp(13px,1.6vw,16px) var(--mono);letter-spacing:.3em;color:var(--red);display:block;margin-bottom:14px}
+h1 .big{font-family:var(--disp);font-weight:800;font-size:clamp(23px,4vw,47px);line-height:1.08;text-transform:uppercase;display:block;min-height:1.1em}
+.proto-sub{margin-top:16px;font-size:15px;color:var(--ink-soft);max-width:58ch}
+.proto-sub b{color:var(--ink)}
+.stamp-round{width:180px;height:180px;position:relative;justify-self:end;animation:spin 55s linear infinite}
+@media(max-width:800px){.stamp-round{display:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stamp-round svg{width:100%;height:100%}
+.stamp-round text{font:600 12.5px var(--mono);letter-spacing:.32em;fill:var(--red)}
+.stamp-round .num{font:800 46px var(--disp);fill:var(--red)}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--ink);border:1.5px solid var(--ink);margin-top:34px}
+.meta-grid>div{background:var(--paper2);padding:11px 14px}
+.meta-grid label{display:block;font:600 9.5px var(--mono);letter-spacing:.22em;color:var(--red);margin-bottom:3px}
+.meta-grid .val{font-weight:600;font-size:14px}
+.meta-grid input{font:600 14px var(--body);color:var(--ink);background:transparent;border:none;border-bottom:1.5px dashed var(--ink-soft);width:100%;outline:none;padding:1px 0}
+.meta-grid input:focus{border-bottom-color:var(--red);border-style:solid}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:clamp(26px,3.5vw,52px);padding-top:44px}
+@media(max-width:1020px){.layout{grid-template-columns:1fr}}
+
+section{margin-bottom:64px;scroll-margin-top:24px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+.sec-num{font:600 12px var(--mono);letter-spacing:.1em;color:var(--red);border:1.5px solid var(--red);padding:3px 9px;white-space:nowrap}
+.sec-head h2{font-family:var(--disp);font-weight:800;font-size:clamp(17px,2.4vw,25px);text-transform:uppercase;overflow:hidden}
+.sec-head h2 span{display:inline-block;transform:translateY(120%);transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.sec-head.in h2 span{transform:translateY(0)}
+.sec-head::after{content:"";flex:1;height:1.5px;background:var(--ink);opacity:.25;transform-origin:left;transform:scaleX(0);transition:transform 1s .15s cubic-bezier(.2,.8,.2,1)}
+.sec-head.in::after{transform:scaleX(1)}
+.rv{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.8,.2,1)}
+.rv.in{opacity:1;transform:none}
+
+.panel{border:1.5px solid var(--ink);background:var(--paper2);position:relative}
+.panel .plate{position:absolute;top:-10px;left:14px;background:var(--paper2);padding:0 8px;font:600 10px var(--mono);letter-spacing:.24em;color:var(--ink-soft)}
+
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:760px){.duo{grid-template-columns:1fr}}
+.duo .panel{padding:24px 22px 22px}
+.eq-list{list-style:none;margin-top:6px}
+.eq-list li{display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed rgba(24,39,66,.3);font-size:14.5px}
+.eq-list li:last-child{border:none}
+.eq-list .n{font:600 11px var(--mono);color:var(--red);padding-top:3px}
+.goal{font-size:16.5px}
+.goal em{font-style:normal;background:linear-gradient(transparent 62%,rgba(192,58,38,.28) 62%)}
+.skills{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:600 11px var(--mono);letter-spacing:.08em;border:1px solid var(--ink);padding:4px 10px;background:var(--paper)}
+.chip.red{border-color:var(--red);color:var(--red)}
+
+.theory-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:30px;align-items:start}
+@media(max-width:860px){.theory-grid{grid-template-columns:1fr}}
+.theory-body p{margin-bottom:14px;max-width:66ch}
+.formula-strip{border:1.5px solid var(--ink);background:var(--panel);color:var(--amber);font:600 clamp(14px,1.9vw,19px) var(--mono);
+  padding:16px 20px;display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:center;margin:20px 0;box-shadow:4px 4px 0 rgba(24,39,66,.2)}
+.formula-strip small{color:#8fa3c8;font-size:11px;letter-spacing:.1em;align-self:center}
+.note-med{border-left:4px solid var(--red);background:rgba(192,58,38,.07);padding:13px 16px;font-size:14px;margin:18px 0}
+.note-med b{color:var(--red)}
+.cheat{position:sticky;top:22px;padding:20px 18px 16px}
+.cheat h3{font:600 11px var(--mono);letter-spacing:.24em;color:var(--red);margin-bottom:12px}
+.cheat .f{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(24,39,66,.35);font:500 13px var(--mono)}
+.cheat .f span:last-child{color:var(--ink-soft);font-size:11px;text-align:right;align-self:center;font-family:var(--body)}
+.gvals{margin-top:26px}
+.gvals h4{font:600 11px var(--mono);letter-spacing:.2em;color:var(--ink-soft);margin-bottom:12px}
+.gbar{display:grid;grid-template-columns:150px 1fr 70px;gap:12px;align-items:center;margin-bottom:8px;font-size:13px}
+.gbar .track{height:12px;background:rgba(24,39,66,.1);position:relative;overflow:hidden}
+.gbar .fill{position:absolute;inset:0 auto 0 0;background:var(--blue);transform-origin:left;transform:scaleX(0);transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
+.gbar.in .fill{transform:scaleX(1)}
+.gbar.hl .fill{background:var(--red)}
+.gbar .v{font:600 12px var(--mono);text-align:right}
+.diagram{margin-top:24px;padding:14px}
+.hand{font-family:var(--hand);font-size:21px;color:var(--red);line-height:1.2}
+
+.steps{list-style:none}
+.step{display:grid;grid-template-columns:52px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid rgba(24,39,66,.25);transition:background .4s,padding .4s}
+.step .num{font:800 22px var(--disp);color:rgba(24,39,66,.28);transition:color .4s}
+.step p{font-size:15px}
+.step p b{color:var(--red)}
+.step code{font:600 13px var(--mono);background:rgba(43,84,166,.1);padding:1px 5px}
+.step.cur{background:rgba(43,84,166,.07);padding-left:12px;padding-right:12px;border-left:3px solid var(--blue)}
+.step.cur .num{color:var(--blue)}
+.step.done .num{color:var(--ok)}
+.step.done .num::after{content:" ✓"}
+
+.lab-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:stretch}
+@media(max-width:900px){.lab-grid{grid-template-columns:1fr}}
+.scene-panel{overflow:hidden}
+.scene-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1.5px solid var(--ink);background:var(--panel);color:var(--paper);flex-wrap:wrap;gap:8px}
+.scene-head .t{font:600 11px var(--mono);letter-spacing:.26em}
+.scene-head .led{font:600 11px var(--mono);letter-spacing:.14em;color:var(--amber);display:flex;gap:8px;align-items:center}
+.led .ld{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.scene{position:relative;height:480px;background:
+  linear-gradient(rgba(43,84,166,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(43,84,166,.05) 1px,transparent 1px);
+  background-size:20px 20px;background-color:#f8f4e9;overflow:hidden}
+.scene svg{position:absolute;inset:0;width:100%;height:100%}
+.pend-scale{position:absolute;left:16px;top:64px;height:380px;width:46px;border-right:2px solid var(--ink)}
+.pend-scale .tick{position:absolute;right:0;height:1.5px;background:var(--ink)}
+.pend-scale .tick.min{width:7px;opacity:.5}
+.pend-scale .tick.maj{width:16px}
+.pend-scale .tick em{position:absolute;right:22px;top:-8px;font:600 10px var(--mono);font-style:normal;color:var(--ink-soft)}
+.bob-flash{animation:bobpulse .35s ease-out}
+@keyframes bobpulse{0%{filter:drop-shadow(0 0 14px rgba(255,199,94,1))}100%{filter:none}}
+.controls{padding:18px 20px;border-top:1.5px solid var(--ink);display:flex;flex-direction:column;gap:14px;background:var(--paper2)}
+.h-row{display:flex;align-items:center;gap:14px}
+.h-row input[type=range]{flex:1;accent-color:var(--red);height:4px;cursor:pointer}
+.h-read{font:600 20px var(--mono);min-width:106px;text-align:right}
+.h-read small{font-size:11px;color:var(--ink-soft);display:block;letter-spacing:.1em;text-align:right}
+.presets{display:flex;gap:8px;flex-wrap:wrap}
+.preset{font:600 11.5px var(--mono);border:1px solid var(--ink);background:var(--paper);padding:5px 11px;cursor:pointer;transition:.2s}
+.preset:hover{background:var(--ink);color:var(--paper)}
+.preset.on{background:var(--red);border-color:var(--red);color:var(--paper)}
+.btn{font:700 14px var(--body);letter-spacing:.06em;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);
+  padding:13px 22px;cursor:pointer;transition:transform .15s,box-shadow .15s,background .2s;box-shadow:3px 3px 0 rgba(24,39,66,.25)}
+.btn:hover:not(:disabled){transform:translate(-1px,-1px);box-shadow:5px 5px 0 rgba(24,39,66,.3)}
+.btn:active:not(:disabled){transform:translate(2px,2px);box-shadow:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.ghost:hover:not(:disabled){background:var(--ink);color:var(--paper)}
+.btn.red{background:var(--red);border-color:var(--red)}
+.btn.blue{background:var(--blue);border-color:var(--blue)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.nsel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font:600 11px var(--mono);letter-spacing:.1em;color:var(--ink-soft)}
+.nsel button{font:600 12px var(--mono);border:1px solid var(--ink);background:var(--paper);padding:5px 11px;cursor:pointer;transition:.2s}
+.nsel button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.autostop{display:flex;align-items:center;gap:8px;font:500 12.5px var(--mono);color:var(--ink-soft);cursor:pointer}
+.autostop input{accent-color:var(--red);width:16px;height:16px}
+.timer-panel{background:var(--panel);border:1.5px solid var(--ink);padding:16px 18px;display:flex;flex-direction:column;gap:12px;box-shadow:4px 4px 0 rgba(24,39,66,.2)}
+.timer-panel .cap{font:600 10px var(--mono);letter-spacing:.26em;color:#8fa3c8}
+.timer-digits{font:600 clamp(34px,4vw,46px) var(--mono);color:var(--amber);letter-spacing:.04em;text-shadow:0 0 16px rgba(255,199,94,.5);line-height:1}
+.timer-digits small{font-size:.45em;color:#8fa3c8}
+.osc-line{display:flex;align-items:baseline;gap:10px;font:600 13px var(--mono);color:#c7d2e8}
+.osc-line b{font-size:26px;color:#7dffa9;transition:transform .12s}
+.osc-line b.bump{transform:scale(1.35)}
+.stat-mini{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-mini .cell{border:1px solid rgba(255,199,94,.25);padding:9px 11px}
+.stat-mini .cell b{display:block;font:600 17px var(--mono);color:var(--amber)}
+.stat-mini .cell span{font:500 9.5px var(--mono);letter-spacing:.16em;color:#8fa3c8}
+.sound-toggle{font:600 11px var(--mono);letter-spacing:.1em;background:none;border:1px solid rgba(255,199,94,.4);color:var(--amber);padding:6px 10px;cursor:pointer;align-self:flex-start}
+
+.calc{padding:14px}
+.calc .screen{width:100%;font:600 19px var(--mono);text-align:right;border:1.5px solid var(--ink);background:var(--panel);color:var(--amber);
+  padding:10px 12px;outline:none;margin-bottom:10px}
+.calc .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.calc .keys button{font:600 15px var(--mono);border:1px solid var(--ink);background:var(--paper);padding:9px 0;cursor:pointer;transition:.15s}
+.calc .keys button:hover{background:var(--ink);color:var(--paper)}
+.calc .keys button.op{background:rgba(43,84,166,.12)}
+.calc .keys button.eq{background:var(--red);border-color:var(--red);color:#fff}
+
+.tbl-wrap{overflow-x:auto;border:1.5px solid var(--ink)}
+table.jr{width:100%;border-collapse:collapse;background:var(--paper);min-width:680px}
+table.jr th{background:var(--ink);color:var(--paper);font:600 11px var(--mono);letter-spacing:.1em;padding:10px 8px;text-align:center}
+table.jr td{border:1px solid rgba(24,39,66,.35);padding:6px 8px;font:500 14px var(--mono);text-align:center}
+table.jr tr.filled td.m{background:rgba(43,84,166,.06)}
+table.jr input{font:600 14px var(--mono);text-align:center;border:1.5px solid rgba(24,39,66,.4);background:#fff;padding:5px 4px;outline:none;transition:.2s}
+table.jr input:focus{border-color:var(--blue)}
+table.jr input.l-in{width:80px}
+table.jr input.n-in{width:58px}
+table.jr input.t-in{width:90px}
+table.jr input.T-in,table.jr input.g-in{width:92px}
+table.jr input.ok{border-color:var(--ok);background:rgba(46,125,79,.12)}
+table.jr input.bad{border-color:var(--red);background:rgba(192,58,38,.1);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+table.jr .st{font-weight:700;min-width:34px;display:inline-block}
+.st.good{color:var(--ok)} .st.err{color:var(--red)} .st.wait{color:var(--ink-soft)}
+.check-msg{margin-top:12px;font-size:13.5px;color:var(--ink-soft);min-height:20px}
+.chart-panel{margin-top:26px;padding:16px 16px 10px}
+.chart-panel canvas{width:100%;height:300px;display:block}
+.res-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:24px}
+.res-card{border:1.5px solid var(--ink);padding:14px 16px;background:var(--paper2);position:relative;overflow:hidden}
+.res-card::after{content:"";position:absolute;top:0;left:0;width:100%;height:3px;background:var(--blue)}
+.res-card.acc::after{background:var(--red)}
+.res-card b{display:block;font:600 24px var(--mono);margin-top:2px}
+.res-card span{font:600 10px var(--mono);letter-spacing:.18em;color:var(--ink-soft)}
+
+.proc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin:18px 0}
+.proc-field{border:1.5px solid var(--ink);background:var(--paper2);padding:14px 16px}
+.proc-field label{font:600 10.5px var(--mono);letter-spacing:.14em;color:var(--ink-soft);display:block;margin-bottom:8px}
+.proc-field .fx{font:600 13px var(--mono);color:var(--blue);margin-bottom:8px}
+.proc-field input{width:100%;font:600 19px var(--mono);border:1.5px solid rgba(24,39,66,.4);background:#fff;padding:7px 10px;outline:none}
+.proc-field input.ok{border-color:var(--ok);background:rgba(46,125,79,.1)}
+.proc-field input.bad{border-color:var(--red);background:rgba(192,58,38,.08);animation:shake .35s}
+.concl-box textarea{width:100%;min-height:150px;border:1.5px solid var(--ink);background:
+  repeating-linear-gradient(var(--paper) 0 27px,rgba(43,84,166,.35) 27px 28px);
+  padding:6px 14px;font:500 15px/28px var(--body);color:var(--ink);resize:vertical;outline:none}
+.concl-box textarea:focus{border-color:var(--red)}
+.concl-meta{display:flex;justify-content:space-between;margin-top:8px;font:500 11px var(--mono);color:var(--ink-soft)}
+.concl-meta .okc{color:var(--ok)}
+
+details{border:1.5px solid var(--ink);background:var(--paper2);margin-bottom:10px}
+summary{list-style:none;cursor:pointer;padding:15px 18px;display:flex;gap:14px;align-items:baseline;font-weight:600;font-size:15px;transition:background .25s}
+summary:hover{background:rgba(43,84,166,.07)}
+summary .qn{font:600 12px var(--mono);color:var(--red)}
+summary::after{content:"+";margin-left:auto;font:400 22px var(--mono);transition:transform .3s}
+details[open] summary::after{transform:rotate(45deg)}
+details .ans{padding:0 18px 16px 46px;font-size:14.5px;color:var(--ink-soft);animation:fadeIn .4s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1}}
+
+.quiz-q{border:1.5px solid var(--ink);background:var(--paper2);padding:20px;margin-bottom:16px}
+.quiz-q h4{font-size:15.5px;margin-bottom:14px;display:flex;gap:12px}
+.quiz-q h4 .qn{font:600 12px var(--mono);color:var(--red);border:1px solid var(--red);padding:2px 7px;height:fit-content}
+.opt{display:block;width:100%;text-align:left;border:1px solid rgba(24,39,66,.4);background:var(--paper);
+  padding:10px 14px;margin-bottom:8px;font:400 14.5px var(--body);color:var(--ink);cursor:pointer;transition:.2s}
+.opt:hover:not(:disabled){border-color:var(--blue);transform:translateX(5px)}
+.opt:disabled{cursor:default}
+.opt.correct{border-color:var(--ok);background:rgba(46,125,79,.14);font-weight:600}
+.opt.wrong{border-color:var(--red);background:rgba(192,58,38,.12);animation:shake .35s}
+.expl{font-size:13px;color:var(--ink-soft);border-left:3px solid var(--amber);padding:6px 12px;margin-top:8px;display:none}
+.expl.show{display:block;animation:fadeIn .4s}
+.score-card{border:2px solid var(--ink);padding:24px;text-align:center;background:var(--panel);color:var(--paper);display:none}
+.score-card.show{display:block;animation:fadeIn .5s}
+.score-card .sc{font:800 44px var(--disp);color:var(--amber)}
+.score-card p{margin-top:6px;color:#c7d2e8;font-size:14px}
+
+.side{position:sticky;top:20px;align-self:start;display:flex;flex-direction:column;gap:18px}
+@media(max-width:1020px){.side{position:static}}
+.proto-card{border:1.5px solid var(--ink);background:var(--paper2);padding:20px 18px;position:relative;margin-bottom:14px}
+.proto-card h3{font:600 11px var(--mono);letter-spacing:.26em;color:var(--red);margin-bottom:14px}
+.plist{list-style:none}
+.plist li{display:flex;gap:11px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed rgba(24,39,66,.3);font-size:13px;color:var(--ink-soft);transition:color .3s}
+.plist li:last-child{border:none}
+.plist .box{width:16px;height:16px;border:1.5px solid var(--ink-soft);flex-shrink:0;margin-top:2px;display:grid;place-items:center;font:700 11px var(--mono);color:transparent;transition:.3s}
+.plist li.done{color:var(--ink)}
+.plist li.done .box{background:var(--ok);border-color:var(--ok);color:#fff}
+.plist li.done .box::before{content:"✓"}
+.live-g{margin-top:14px;background:var(--panel);padding:13px 14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
+.live-g b{display:block;font:600 16px var(--mono);color:var(--amber)}
+.live-g span{font:500 8.5px var(--mono);letter-spacing:.12em;color:#8fa3c8}
+.stamp-done{position:absolute;left:50%;bottom:-16px;transform:translateX(-50%) rotate(-11deg) scale(2.4);opacity:0;
+  border:3.5px solid var(--red);color:var(--red);padding:8px 20px;font:800 20px var(--disp);letter-spacing:.1em;
+  border-radius:8px;pointer-events:none;mix-blend-mode:multiply;background:rgba(244,239,226,.5);white-space:nowrap}
+.stamp-done.show{animation:stampIn .55s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes stampIn{to{opacity:1;transform:translateX(-50%) rotate(-11deg) scale(1)}}
+.side-note{border:1.5px dashed var(--ink-soft);padding:14px 16px;font-family:var(--hand);font-size:22px;line-height:1.25;color:var(--ink)}
+.side-note b{color:var(--red)}
+
+footer{border-top:2px solid var(--ink);margin-top:20px;padding:34px 0 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center}
+@media(max-width:700px){footer{grid-template-columns:1fr}}
+.teach{display:flex;gap:16px;align-items:center}
+.teach .ava{width:58px;height:58px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font:800 19px var(--disp);flex-shrink:0}
+.teach .nm{font-weight:700;font-size:16.5px}
+.teach .rl{font:500 12px var(--mono);letter-spacing:.08em;color:var(--ink-soft)}
+.sign{font-family:var(--hand);font-size:32px;color:var(--blue);transform:rotate(-4deg)}
+.foot-line{grid-column:1/-1;font:500 10.5px var(--mono);letter-spacing:.18em;color:var(--ink-soft);border-top:1px dashed rgba(24,39,66,.4);padding-top:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,90px);background:var(--ink);color:var(--paper);
+  padding:13px 24px;font:600 13px var(--mono);letter-spacing:.06em;z-index:120;transition:transform .5s cubic-bezier(.2,.8,.2,1);box-shadow:4px 4px 0 rgba(24,39,66,.35);max-width:90vw;text-align:center}
+.toast.show{transform:translate(-50%,0)}
+
+#reportModal{position:fixed;inset:0;z-index:100;background:rgba(13,21,36,.72);display:none;overflow:auto;padding:26px 14px}
+#reportModal.open{display:block}
+.modal-bar{position:sticky;top:0;z-index:5;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:0 auto 18px;max-width:760px}
+.rpt{width:760px;max-width:100%;margin:0 auto;background:#fff;color:#101010;padding:46px 52px;font-family:var(--body);font-size:13.5px;line-height:1.62;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.rpt h1{font-size:17.5px;text-align:center;font-weight:700;margin-bottom:4px;line-height:1.35}
+.rpt .rpt-topic{text-align:center;font-size:13px;margin-bottom:16px}
+.rpt .rpt-head{display:flex;flex-wrap:wrap;gap:6px 26px;border-top:1px solid #222;border-bottom:1px solid #222;padding:8px 2px;margin-bottom:18px;font-size:13px}
+.rpt .rpt-head .fill{display:inline-block;min-width:70px;border-bottom:1px dotted #555;text-align:center}
+.rpt h2{font-size:13.5px;font-weight:700;text-transform:uppercase;margin:18px 0 8px;letter-spacing:.03em}
+.rpt table.rtbl{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:12.5px;page-break-inside:avoid}
+.rpt table.rtbl th,.rpt table.rtbl td{border:1px solid #333;padding:6px 7px;text-align:center}
+.rpt table.rtbl th{background:#f0f0f0;font-weight:700}
+.rpt .fx-line{font-family:var(--mono);font-size:13.5px;background:#f4f4f4;border:1px solid #ddd;padding:9px 12px;margin:8px 0;text-align:center}
+.rpt .chart-img{margin:12px auto 2px;display:block;max-width:100%;border:1px solid #bbb;page-break-inside:avoid}
+.rpt .chart-cap{font-size:11.5px;text-align:center;color:#444;margin-bottom:8px}
+.rpt .concl-txt{white-space:pre-wrap}
+.rpt .signs{display:flex;justify-content:space-between;gap:30px;margin-top:38px;font-size:13px}
+.rpt .signs .ln{display:inline-block;width:130px;border-bottom:1px solid #333;margin-right:8px}
+.rpt .rpt-foot{margin-top:30px;border-top:1px solid #333;padding-top:10px;text-align:center;font-size:12px;color:#333}
+
+@media print{
+  body{background:#fff!important}
+  #app,.rail,.noise,.toast{display:none!important}
+  #reportModal{position:static!important;background:none!important;padding:0!important;display:block!important}
+  .modal-bar{display:none!important}
+  .rpt{box-shadow:none!important;width:100%!important;padding:10mm 8mm!important}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}
+  html{scroll-behavior:auto}
+  .rv{opacity:1;transform:none}
+  .sec-head h2 span{transform:none}
+  .sec-head::after{transform:scaleX(1)}
+  .gbar .fill{transform:scaleX(1)}
+}
+</style>
+</head>
+<body>
+<div class="noise" aria-hidden="true"></div>
+<div class="rail" aria-hidden="true">
+  <div class="tape"></div>
+  <div class="marker"><span class="read" id="railRead">0 см</span></div>
+  <span class="cap">ГЛИБИНА ДОСЛІДЖЕННЯ</span>
+</div>
+
+<div id="app">
+<header class="topbar">
+  <div class="live"><span class="dot"></span>ВІРТУАЛЬНА ЛАБОРАТОРІЯ · АКТИВНА</div>
+  <div class="right">ФІЗИКА І АСТРОНОМІЯ · РОЗДІЛ «МЕХАНІЧНІ КОЛИВАННЯ» · <span id="dateTop"></span></div>
+</header>
+
+<div class="wrap">
+  <header class="protocol">
+    <div class="proto-row">
+      <div class="form-code">ФОРМА <b>ЛБ-03</b> · МЕДИЧНИЙ ФАХОВИЙ КОЛЕДЖ · І КУРС</div>
+      <div class="barcode" id="barcode" aria-hidden="true"></div>
+    </div>
+    <div class="proto-grid">
+      <div>
+        <h1>
+          <span class="kicker">ЛАБОРАТОРНА РОБОТА № 3 · ТЕМА РОЗДІЛУ: МЕХАНІЧНІ КОЛИВАННЯ</span>
+          <span class="big" id="scrTitle" data-text="ВИЗНАЧЕННЯ ПРИСКОРЕННЯ ВІЛЬНОГО ПАДІННЯ ЗА ДОПОМОГОЮ МАТЕМАТИЧНОГО МАЯТНИКА"></span>
+        </h1>
+        <p class="proto-sub">Студент проводить 5 вимірювань часу коливань маятника, <b>самостійно обчислює</b> період T = t/N і прискорення <b>g = 4π²N²l / t²</b>, оцінює похибки та формує звіт для завантаження у PDF.</p>
+      </div>
+      <div class="stamp-round" aria-hidden="true">
+        <svg viewBox="0 0 200 200">
+          <defs><path id="cir" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
+          <circle cx="100" cy="100" r="93" fill="none" stroke="#c03a26" stroke-width="2.5" opacity=".8"/>
+          <circle cx="100" cy="100" r="60" fill="none" stroke="#c03a26" stroke-width="1.5" opacity=".7"/>
+          <text><textPath href="#cir">МЕДИЧНИЙ КОЛЕДЖ • ФІЗИКА І АСТРОНОМІЯ • ПРАКТИКУМ • </textPath></text>
+          <text x="100" y="112" text-anchor="middle" class="num">№3</text>
+        </svg>
+      </div>
+    </div>
+    <div class="meta-grid">
+      <div><label>ВИКОНАВ(ЛА)</label><input id="studName" type="text" placeholder="Прізвище та ім’я"></div>
+      <div><label>ГРУПА</label><input id="studGroup" type="text" placeholder="напр. 21-Ф"></div>
+      <div><label>ДАТА ВИКОНАННЯ</label><input id="studDate" type="text"></div>
+      <div><label>ВАРІАНТ</label><input id="studVar" type="text" placeholder="№"></div>
+      <div><label>ВИКЛАДАЧ</label><div class="val">Анікушин Роман Сергійович</div></div>
+      <div><label>ФОРМАТ</label><div class="val">Інтерактивний стенд · ~45 хв</div></div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <main>
+
+      <!-- 01 МЕТА -->
+      <section id="meta">
+        <div class="sec-head"><span class="sec-num">01 / МЕТА</span><h2><span>Мета роботи та обладнання</span></h2></div>
+        <div class="duo">
+          <div class="panel rv"><span class="plate">1. МЕТА РОБОТИ</span>
+            <p class="goal">Експериментально визначити прискорення вільного падіння <em>g</em>, використовуючи коливання математичного маятника; обчислити період коливань, середнє значення g та оцінити відносну похибку вимірювань.</p>
+            <div class="skills">
+              <span class="chip">РОЗРАХУНКИ ВРУЧНУ</span><span class="chip">ВИМІР ЧАСУ</span>
+              <span class="chip">ПОХИБКИ</span><span class="chip red">≈ 45 ХВИЛИН</span>
+            </div>
+          </div>
+          <div class="panel rv"><span class="plate">2. ОБЛАДНАННЯ</span>
+            <ul class="eq-list">
+              <li><span class="n">[01]</span>Віртуальний стенд «Математичний маятник»</li>
+              <li><span class="n">[02]</span>Електронний секундомір (точність 0,01 с)</li>
+              <li><span class="n">[03]</span>Шкала довжини нитки, см</li>
+              <li><span class="n">[04]</span>Калькулятор (праворуч на сторінці)</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 ТЕОРІЯ -->
+      <section id="theory">
+        <div class="sec-head"><span class="sec-num">02 / ТЕОРІЯ</span><h2><span>Теоретичні відомості</span></h2></div>
+        <div class="theory-grid">
+          <div class="theory-body">
+            <p class="rv theory-blk"><b>Математичний маятник</b> — ідеалізована модель: матеріальна точка, підвішена на невагомій нерозтяжній нитці. Реальний маятник (важка кулька на довгій нитці) поводиться як математичний, якщо довжина нитки значно більша за розміри кульки, а кут відхилення малий (5–10°).</p>
+            <p class="rv theory-blk">При малих кутах повертальна сила пропорційна зміщенню, і маятник здійснює гармонічні коливання. Період коливань залежить лише від довжини нитки та прискорення вільного падіння:</p>
+            <div class="formula-strip rv theory-blk"><span>T = 2π√(l/g)</span><span>⇒</span><span>g = 4π²l / T²</span></div>
+            <p class="rv theory-blk">Період знаходять, вимірявши час <b>t</b> для <b>N</b> повних коливань: <b>T = t/N</b>. Підставивши в попередню формулу, дістаємо робочу формулу роботи:</p>
+            <div class="formula-strip rv theory-blk"><span>g = 4π²N²l / t²</span><small>← ОБЧИСЛЮЄТЕ САМОСТІЙНО</small></div>
+            <p class="rv theory-blk"><b>Навіщо багато коливань?</b> Абсолютна похибка запуску/зупинки секундоміра (час реакції ≈ 0,2 с) при обчисленні періоду ділиться на N: ΔT = Δt/N. Для N = 30 ця похибка зменшується втридцять разів — саме тому вимірюють час багатьох коливань.</p>
+            <p class="rv theory-blk">Якщо побудувати графік <b>T²</b> від <b>l</b>, точки ляжуть на пряму через початок координат; її нахил дорівнює 4π²/g, тож за графіком теж можна визначити g.</p>
+            <div class="note-med rv theory-blk"><b>Медичний контекст:</b> коливання лежать в основі багатьох фізіологічних ритмів (серцебиття, дихання, тремор), а вестибулярний апарат людини — по суті чутливий «маятниковий» прилад. Маятникові принципи використовують у сейсмографах і тренажерах для реабілітації.</div>
+            <div class="gvals panel rv theory-blk" style="padding:18px">
+              <h4>ТАБЛИЧНІ ЗНАЧЕННЯ g, м/с²</h4>
+              <div class="gbar"><span>Місяць</span><div class="track"><div class="fill" style="width:16.5%"></div></div><span class="v">1,62</span></div>
+              <div class="gbar"><span>Еверест</span><div class="track"><div class="fill" style="width:82%"></div></div><span class="v">9,77</span></div>
+              <div class="gbar"><span>Екватор</span><div class="track"><div class="fill" style="width:87%"></div></div><span class="v">9,780</span></div>
+              <div class="gbar hl"><span>Київ ≈ 50° пн. ш.</span><div class="track"><div class="fill" style="width:92%"></div></div><span class="v">9,810</span></div>
+              <div class="gbar"><span>Полюс</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="v">9,832</span></div>
+            </div>
+            <div class="panel diagram rv theory-blk">
+              <svg viewBox="0 0 560 250" width="100%" role="img" aria-label="Схема математичного маятника">
+                <rect x="180" y="14" width="200" height="10" fill="#182742"/>
+                <line x1="280" y1="24" x2="360" y2="190" stroke="#182742" stroke-width="1.6"/>
+                <circle cx="360" cy="190" r="12" fill="#a7b0ba" stroke="#525c68" stroke-width="1.5"/>
+                <line x1="280" y1="24" x2="280" y2="215" stroke="#3c4a66" stroke-width="1" stroke-dasharray="4 5"/>
+                <path d="M280,120 A100,100 0 0 1 322,113" fill="none" stroke="#2b54a6" stroke-width="1.3"/>
+                <text x="296" y="106" fill="#2b54a6" font-family="IBM Plex Mono" font-size="13">θ</text>
+                <line x1="240" y1="30" x2="240" y2="196" stroke="#c03a26" stroke-width="1.4"/>
+                <path d="M235,36 L240,28 L245,36" fill="none" stroke="#c03a26" stroke-width="1.4"/>
+                <path d="M235,190 L240,198 L245,190" fill="none" stroke="#c03a26" stroke-width="1.4"/>
+                <text x="222" y="115" fill="#c03a26" font-family="IBM Plex Mono" font-size="16" text-anchor="middle">l</text>
+                <text x="60" y="70" fill="#c03a26" font-family="Caveat" font-size="26">відхиляємо на</text>
+                <text x="60" y="100" fill="#c03a26" font-family="Caveat" font-size="26">маленький кут!</text>
+                <text x="390" y="230" fill="#3c4a66" font-family="IBM Plex Mono" font-size="12">T = 2π√(l/g)</text>
+              </svg>
+            </div>
+          </div>
+          <aside class="panel cheat rv">
+            <h3>◆ ШПАРГАЛКА ДО РОБОТИ</h3>
+            <div class="f"><span>T = 2π√(l/g)</span><span>період маятника</span></div>
+            <div class="f"><span>T = t / N</span><span>період через N коливань</span></div>
+            <div class="f"><span>g = 4π²N²l / t²</span><span>робоча формула</span></div>
+            <div class="f"><span>π ≈ 3,14159</span><span>4π² ≈ 39,478</span></div>
+            <div class="f"><span>gсер = (Σ gᵢ)/n</span><span>середнє значення</span></div>
+            <div class="f"><span>Δg = |gсер − 9,81|</span><span>абсолютна похибка</span></div>
+            <div class="f"><span>ε = Δg/9,81·100%</span><span>відносна похибка</span></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 03 ХІД -->
+      <section id="steps">
+        <div class="sec-head"><span class="sec-num">03 / ІНСТРУКЦІЯ</span><h2><span>Хід роботи</span></h2></div>
+        <ol class="steps">
+          <li class="step rv" data-step="1"><span class="num">1</span><p>Встановіть повзунком <b>довжину нитки l</b> (наприклад, 1,00 м) за шкалою стенда та оберіть кількість коливань <b>N = 30</b>.</p></li>
+          <li class="step rv" data-step="2"><span class="num">2</span><p>Натисніть <b>«ПУСК»</b> — маятник почне коливатися, секундомір піде одночасно з відпусканням.</p></li>
+          <li class="step rv" data-step="3"><span class="num">3</span><p>Уважно рахуйте коливання (спалахи кульки допомагають). Натисніть <b>«СТОП»</b> саме в момент завершення N-го коливання.</p></li>
+          <li class="step rv" data-step="4"><span class="num">4</span><p>Значення l, N і t з’являться в таблиці (за потреби виправте їх). <b>Самостійно обчисліть</b> на калькуляторі <code>T = t/N</code> і <code>g = 4π²N²l/t²</code>, впишіть значення та натисніть «Перевірити».</p></li>
+          <li class="step rv" data-step="5"><span class="num">5</span><p>Повторіть досліди для <b>п’яти різних довжин</b> (1,00 → 0,60 м), для кожної — свої розрахунки.</p></li>
+          <li class="step rv" data-step="6"><span class="num">6</span><p>Обчисліть <code>gсер</code>, <code>Δg = |gсер − 9,81|</code> та <code>ε = Δg/9,81·100%</code>, запишіть висновок і завантажте звіт у PDF.</p></li>
+        </ol>
+      </section>
+
+      <!-- 04 УСТАНОВКА -->
+      <section id="lab">
+        <div class="sec-head"><span class="sec-num">04 / ЕКСПЕРИМЕНТ</span><h2><span>Віртуальний стенд «Маятник»</span></h2></div>
+        <div class="lab-grid">
+          <div class="panel scene-panel rv">
+            <div class="scene-head">
+              <span class="t">СТЕНД М-3 · МАТЕМАТИЧНИЙ МАЯТНИК</span>
+              <span class="led"><span class="ld" id="ledDot"></span><span id="ledTxt">ГОТОВИЙ ДО ПУСКУ</span></span>
+            </div>
+            <div class="scene" id="scene">
+              <div class="pend-scale" id="pendScale"></div>
+              <svg id="pendSvg" viewBox="0 0 640 480" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <defs>
+                  <radialGradient id="bobGrad" cx="35%" cy="30%" r="75%">
+                    <stop offset="0%" stop-color="#f5f8fb"/><stop offset="55%" stop-color="#a7b0ba"/><stop offset="100%" stop-color="#4c5560"/>
+                  </radialGradient>
+                </defs>
+                <rect x="200" y="38" width="240" height="12" fill="#182742"/>
+                <rect x="314" y="46" width="12" height="12" fill="#0a1120"/>
+                <line x1="320" y1="56" x2="320" y2="470" stroke="rgba(24,39,66,.3)" stroke-width="1" stroke-dasharray="4 6"/>
+                <path id="arcGuide" fill="none" stroke="rgba(43,84,166,.25)" stroke-width="1" stroke-dasharray="3 5"/>
+                <line id="thread" x1="320" y1="56" x2="320" y2="300" stroke="#182742" stroke-width="1.6"/>
+                <circle id="flashRing" cx="320" cy="300" r="16" fill="none" stroke="#c03a26" stroke-width="2" opacity="0"/>
+                <circle id="bob" cx="320" cy="300" r="13" fill="url(#bobGrad)" stroke="#454f5c" stroke-width="1"/>
+              </svg>
+            </div>
+            <div class="controls">
+              <div class="h-row">
+                <input type="range" id="lSlider" min="0.50" max="1.30" step="0.01" value="1.00" aria-label="Довжина нитки">
+                <div class="h-read"><span id="lRead">1,00 м</span><small id="lReadCm">100 см</small></div>
+              </div>
+              <div class="presets" id="presets">
+                <button class="preset" data-l="1.00">1,00 м</button>
+                <button class="preset" data-l="0.90">0,90 м</button>
+                <button class="preset" data-l="0.80">0,80 м</button>
+                <button class="preset" data-l="0.70">0,70 м</button>
+                <button class="preset" data-l="0.60">0,60 м</button>
+              </div>
+              <div class="nsel"><span>КІЛЬКІСТЬ КОЛИВАНЬ N:</span>
+                <button data-n="10">10</button><button data-n="20">20</button><button data-n="30" class="on">30</button><button data-n="40">40</button><button data-n="50">50</button>
+              </div>
+              <div class="btn-row">
+                <button class="btn red" id="startBtn">▶ ПУСК</button>
+                <button class="btn" id="stopBtn" disabled>■ СТОП</button>
+                <button class="btn ghost" id="resetBtn">↺ СКИДАННЯ</button>
+              </div>
+              <label class="autostop"><input type="checkbox" id="autoChk"> АВТО-СТОП НА N-МУ КОЛИВАННІ (для самоперевірки — вимкніть)</label>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div class="timer-panel rv">
+              <span class="cap">ЕЛЕКТРОННИЙ СЕКУНДОМІР · 0,01 с</span>
+              <div class="timer-digits"><span id="timerTxt">0,00</span><small> с</small></div>
+              <div class="osc-line">КОЛИВАНЬ: <b id="oscCount">0</b> / <span id="oscTarget">30</span></div>
+              <div class="stat-mini">
+                <div class="cell"><b id="measCount">0</b><span>ВИМІРІВ З 5</span></div>
+                <div class="cell"><b id="lastT">—</b><span>ОСТАННІЙ t, с</span></div>
+              </div>
+              <button class="sound-toggle" id="soundBtn">🔊 ЗВУК: УВІМК</button>
+            </div>
+            <div class="side-note rv">Рахуйте коливання <b>сами</b>: натискайте СТОП рівно на N-му. Саме «час реакції» дає головну похибку досліду! Р. С.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 ЖУРНАЛ -->
+      <section id="journal">
+        <div class="sec-head"><span class="sec-num">05 / ЖУРНАЛ</span><h2><span>3. Результати вимірювань</span></h2></div>
+        <p class="rv" style="max-width:72ch;margin-bottom:14px;font-size:14.5px">Поля <b>l, N і t</b> заповнюються автоматично після кожного виміру, але їх можна <b>виправити вручну</b> — перевірка, графік і звіт використовують саме введені значення (десяткові розділювачі — кома або крапка).</p>
+        <div class="tbl-wrap rv">
+          <table class="jr">
+            <thead><tr>
+              <th>№</th><th>l, м</th><th>N</th><th>t, с</th><th>T = t/N, с</th><th>g = 4π²N²l/t², м/с²</th><th>Статус</th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn blue" id="checkCalcBtn">✓ ПЕРЕВІРИТИ РОЗРАХУНКИ</button>
+          <button class="btn ghost" id="undoBtn" disabled>↩ СКАСУВАТИ ОСТАННІЙ ЗАПИС</button>
+        </div>
+        <div class="check-msg" id="calcMsg">Значення T і g обчисліть самостійно за формулами та внесіть у таблицю. Перевірка — за кнопкою.</div>
+        <div class="panel chart-panel rv">
+          <span class="plate">ГРАФІК · T² = (4π²/g) · l</span>
+          <canvas id="chart"></canvas>
+        </div>
+        <div class="res-grid">
+          <div class="res-card"><span>НАХИЛ ПРЯМОЇ</span><b id="slopeVal">—</b></div>
+          <div class="res-card acc"><span>g З ГРАФІКА, м/с²</span><b id="gGraph">—</b></div>
+        </div>
+      </section>
+
+      <!-- 06 ОБРОБКА -->
+      <section id="proc">
+        <div class="sec-head"><span class="sec-num">06 / ОБРОБКА</span><h2><span>4. Обробка результатів</span></h2></div>
+        <p class="rv" style="max-width:70ch">Використовуючи <b>ваші</b> значення g з таблиці, обчисліть середнє, абсолютну та відносну похибки. Формули — під полями; після введення натисніть «Перевірити».</p>
+        <div class="proc-grid rv">
+          <div class="proc-field"><label>СЕРЕДНЄ ЗНАЧЕННЯ, м/с²</label><div class="fx">gсер = (g₁+g₂+…+g₅) / 5</div><input id="pMean" inputmode="decimal" placeholder="9,7…"></div>
+          <div class="proc-field"><label>АБСОЛЮТНА ПОХИБКА, м/с²</label><div class="fx">Δg = |gсер − 9,81|</div><input id="pDev" inputmode="decimal" placeholder="0,0…"></div>
+          <div class="proc-field"><label>ВІДНОСНА ПОХИБКА, %</label><div class="fx">ε = Δg/9,81 · 100%</div><input id="pEps" inputmode="decimal" placeholder="…"></div>
+        </div>
+        <div class="btn-row rv"><button class="btn blue" id="checkProcBtn">✓ ПЕРЕВІРИТИ ОБРОБКУ</button></div>
+        <div class="check-msg" id="procMsg"></div>
+        <div class="panel concl-box rv" style="padding:18px;margin-top:26px">
+          <span class="plate">5. ВИСНОВОК</span>
+          <textarea id="conclText" placeholder="У ході лабораторної роботи № 3 я визначив(ла) прискорення вільного падіння за допомогою математичного маятника. Виконавши 5 вимірювань і самостійно обчисливши g за формулою g = 4π²N²l/t², я отримав(ла) середнє значення…"></textarea>
+          <div class="concl-meta"><span id="conclCount">0 / мінімум 80 символів</span><span>УВАЙДЕ ДО ЗВІТУ PDF</span></div>
+        </div>
+      </section>
+
+      <!-- 07 ЗВІТ -->
+      <section id="report">
+        <div class="sec-head"><span class="sec-num">07 / ЗВІТ</span><h2><span>Завантаження звіту (PDF)</span></h2></div>
+        <p class="rv" style="max-width:70ch;margin-bottom:18px">Звіт формується за структурою зразка: шапка з вашими даними, таблиця результатів, обробка, графік, висновок і підписи. Заповніть усі поля — і завантажуйте.</p>
+        <div class="btn-row rv">
+          <button class="btn red" id="openReportBtn">📄 СФОРМУВАТИ ЗВІТ</button>
+        </div>
+      </section>
+
+      <!-- 08 ПИТАННЯ -->
+      <section id="questions">
+        <div class="sec-head"><span class="sec-num">08 / ЗАПИТАННЯ</span><h2><span>Контрольні запитання</span></h2></div>
+        <details class="rv"><summary><span class="qn">Q1</span>Що таке математичний маятник і коли реальний маятник можна вважати математичним?</summary>
+          <div class="ans">Це ідеальна модель: матеріальна точка на невагомій нерозтяжній нитці. Реальний маятник (важка кулька на довгій нитці) можна вважати математичним, якщо довжина нитки значно більша за розмір кульки, а амплітуда коливань мала.</div></details>
+        <details class="rv"><summary><span class="qn">Q2</span>Виведіть робочу формулу g = 4π²N²l/t².</summary>
+          <div class="ans">Для малих кутів період математичного маятника T = 2π√(l/g), звідки g = 4π²l/T². Час одного коливання виміряти важко, тому вимірюють час t для N коливань: T = t/N. Підставивши: g = 4π²l/(t/N)² = 4π²N²l/t².</div></details>
+        <details class="rv"><summary><span class="qn">Q3</span>Чому період не залежить від маси кульки та (для малих кутів) від амплітуди?</summary>
+          <div class="ans">Маса скорочується в рівнянні руху (сила тяжіння й інерція пропорційні масі). Незалежність періоду від амплітуди малих коливань — ізохронізм — встановив ще Галілей.</div></details>
+        <details class="rv"><summary><span class="qn">Q4</span>Навіщо вимірювати час 30 коливань, а не одного?</summary>
+          <div class="ans">Похибка реакції при запуску/зупинці секундоміра (~0,2 с) при обчисленні періоду ділиться на N: ΔT = Δt/N. За 30 коливань відносна похибка часу стає втридця меншою.</div></details>
+        <details class="rv"><summary><span class="qn">Q5</span>Основні джерела похибок і способи їх зменшення?</summary>
+          <div class="ans">Час реакції при роботі з секундоміром, вимірювання довжини нитки, неточне фіксування моменту коливання, опір повітря. Зменшуються: збільшенням N, кількома повторами, вимірюванням довжини від точки підвісу до центра кульки, більшою кількістю вимірювань.</div></details>
+        <details class="rv"><summary><span class="qn">Q6</span>Як зміниться період маятника на Місяці?</summary>
+          <div class="ans">g на Місяці ≈ 1,62 м/с² — ушестеро менше, ніж на Землі. Оскільки T = 2π√(l/g), період зросте у √6 ≈ 2,45 раза: маятник коливатиметься помітно повільніше.</div></details>
+      </section>
+
+      <!-- 09 ТЕСТ -->
+      <section id="test">
+        <div class="sec-head"><span class="sec-num">09 / ПЕРЕВІРКА</span><h2><span>Перевірчий тест</span></h2></div>
+        <p class="rv" style="margin-bottom:20px;max-width:66ch">Вісім запитань, одна правильна відповідь. Для зарахування потрібно <b>7–8 балів</b>. Після вибору з’являється пояснення.</p>
+        <div id="quizBox"></div>
+        <div class="score-card" id="scoreCard">
+          <div class="sc"><span id="scoreNum">0</span> / 8</div>
+          <p id="scoreMsg"></p>
+          <button class="btn red" id="retryQuiz" style="margin-top:14px">↺ ПРОЙТИ ЩЕ РАЗ</button>
+        </div>
+      </section>
+
+      <footer>
+        <div class="teach">
+          <div class="ava">РА</div>
+          <div>
+            <div class="nm">Анікушин Роман Сергійович</div>
+            <div class="rl">ВИКЛАДАЧ ФІЗИКИ І АСТРОНОМІЇ · ПІДГОТУВАВ ЦЮ ЛАБОРАТОРНУ РОБОТУ</div>
+          </div>
+        </div>
+        <div class="sign">Р. Анікушин</div>
+        <div class="foot-line">
+          <span>ЛАБОРАТОРНИЙ ПРАКТИКУМ · МЕДИЧНИЙ ФАХОВИЙ КОЛЕДЖ · І КУРС</span>
+          <span>© <span id="year"></span> · ФІЗИКА І АСТРОНОМІЯ · ЛАБОРАТОРНА РОБОТА № 3</span>
+        </div>
+      </footer>
+    </main>
+
+    <aside class="side">
+      <div class="proto-card">
+        <h3>◆ ПРОТОКОЛ ВИКОНАННЯ</h3>
+        <ul class="plist">
+          <li id="p1"><span class="box"></span>Теоретичну частину опрацьовано</li>
+          <li id="p2"><span class="box"></span>Проведено 5 вимірювань часу</li>
+          <li id="p3"><span class="box"></span>T і g обчислено та перевірено (всі ✓)</li>
+          <li id="p4"><span class="box"></span>Обробку завершено (gсер, Δg, ε)</li>
+          <li id="p5"><span class="box"></span>Написано висновок (≥ 80 символів)</li>
+          <li id="p6"><span class="box"></span>Тест складено на 7–8 балів</li>
+        </ul>
+        <div class="live-g">
+          <div><b id="liveN">0</b><span>ВИМІРІВ</span></div>
+          <div><b id="liveOk">0</b><span>РЯДКІВ ✓</span></div>
+          <div><b id="liveProc">—</b><span>ε, %</span></div>
+        </div>
+        <div class="stamp-done" id="stamp">ЗАРАХОВАНО</div>
+      </div>
+      <div class="panel calc">
+        <span class="plate">КАЛЬКУЛЯТОР СТУДЕНТА</span>
+        <input class="screen" id="calcScreen" value="0" spellcheck="false">
+        <div class="keys" id="calcKeys">
+          <button data-k="C">C</button><button data-k="⌫">⌫</button><button data-k="(">(</button><button data-k=")">)</button>
+          <button data-k="π">π</button><button data-k="√(">√</button><button data-k="^2">x²</button><button data-k="÷" class="op">÷</button>
+          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="×" class="op">×</button>
+          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="−" class="op">−</button>
+          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="+" class="op">+</button>
+          <button data-k="0">0</button><button data-k=",">,</button><button data-k="." class="op">.</button><button data-k="=" class="eq">=</button>
+        </div>
+      </div>
+      <div class="side-note">Зразок: 30 коливань за ≈ 60 с при l = 1 м. <b>Не кваптеся</b> зі СТОПом!</div>
+    </aside>
+  </div>
+</div>
+</div>
+
+<!-- МОДАЛКА ЗВІТУ -->
+<div id="reportModal" role="dialog" aria-label="Звіт лабораторної роботи">
+  <div class="modal-bar">
+    <button class="btn red" id="pdfBtn">⬇ ЗАВАНТАЖИТИ PDF</button>
+    <button class="btn ghost" id="printBtn" style="background:var(--paper)">🖨 ДРУК</button>
+    <button class="btn ghost" id="closeReportBtn" style="background:var(--paper)">✕ ЗАКРИТИ</button>
+  </div>
+  <div class="rpt" id="rpt">
+    <h1>Визначення прискорення вільного падіння за допомогою математичного маятника</h1>
+    <div class="rpt-topic">Тема розділу: Механічні коливання · Лабораторна робота № 3</div>
+    <div class="rpt-head">
+      <span>Виконав(ла): <span class="fill" id="rName"></span></span>
+      <span>Група: <span class="fill" id="rGroup"></span></span>
+      <span>Дата: <span class="fill" id="rDate"></span></span>
+      <span>Варіант: № <span class="fill" id="rVar" style="min-width:34px"></span></span>
+    </div>
+    <h2>1. Мета роботи</h2>
+    <p>Експериментально визначити прискорення вільного падіння g, використовуючи коливання математичного маятника; обчислити період коливань, середнє значення g та оцінити відносну похибку вимірювань.</p>
+    <h2>2. Обладнання</h2>
+    <p>Віртуальний стенд «Математичний маятник», електронний секундомір (точність 0,01 с), шкала довжини нитки, калькулятор.</p>
+    <h2>3. Результати вимірювань</h2>
+    <table class="rtbl">
+      <thead><tr><th>№</th><th>l, м</th><th>N</th><th>t, с</th><th>T = t/N, с</th><th>g = 4π²N²l/t², м/с²</th></tr></thead>
+      <tbody id="rTable"></tbody>
+    </table>
+    <h2>4. Обробка результатів</h2>
+    <div class="fx-line">g = 4π²N²l / t², &nbsp;&nbsp; T = t / N</div>
+    <p>Кількість використаних вимірювань: <b id="rCount">5</b></p>
+    <p>Середнє значення: <b id="rMean">gсер = —</b></p>
+    <p>Абсолютна похибка: <b id="rDev">Δg = |gсер − 9,81| = —</b></p>
+    <p>Відносна похибка: <b id="rEps">ε = Δg/9,81 · 100% = —</b></p>
+    <img class="chart-img" id="rChart" alt="Графік залежності T² від l">
+    <div class="chart-cap">Графік залежності T² від довжини нитки l</div>
+    <h2>5. Висновок</h2>
+    <p class="concl-txt" id="rConcl"></p>
+    <div class="signs">
+      <div>Звіт виконав(ла): <span class="ln"></span></div>
+      <div>Прийняв викладач: <span class="ln"></span></div>
+    </div>
+    <div class="rpt-foot">Викладач фізики і астрономії — Анікушин Роман Сергійович · Лабораторна робота № 3</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const G = 9.81, PI2 = Math.PI*Math.PI;
+const $ = id => document.getElementById(id);
+const fmtU = (x,d)=>Number(x).toLocaleString('uk-UA',{minimumFractionDigits:d,maximumFractionDigits:d});
+const num = s => parseFloat(String(s).replace(',','.'));
+function toast(msg,ms){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms||3400); }
+
+/* дата, рік, штрих-код */
+const now = new Date();
+const p2 = x => String(x).padStart(2,'0');
+const dStr = p2(now.getDate())+'.'+p2(now.getMonth()+1)+'.'+now.getFullYear();
+$('dateTop').textContent = now.toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'}).toUpperCase();
+$('studDate').value = dStr;
+$('year').textContent = now.getFullYear();
+(function(){const bc=$('barcode');for(let i=0;i<26;i++){const w=(i%4===0)?3:(i%3===0)?2:1;const b=document.createElement('i');b.style.width=w+'px';b.style.height=(14+(i*13)%13)+'px';bc.appendChild(b);}})();
+
+/* скрембл заголовка */
+(function(){
+  const el=$('scrTitle'), txt=el.dataset.text;
+  if(RM){el.textContent=txt;return;}
+  const pool='АБВГДЕЖЗИКЛМНПРСТУФХЦЧШЩЮЯ∆π≈²0123456789';
+  let f=0; const total=36;
+  (function tick(){
+    f++;
+    const settled=Math.floor((f/total)*txt.length);
+    let out='';
+    for(let i=0;i<txt.length;i++){
+      const c=txt[i];
+      out += (c===' '||i<settled) ? c : pool[Math.floor(Math.random()*pool.length)];
+    }
+    el.textContent=out;
+    if(f<total+2) setTimeout(tick,36); else el.textContent=txt;
+  })();
+})();
+
+/* звук */
+let AC=null, soundOn=true;
+function beep(f,d,type,g){
+  if(!soundOn) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), ga=AC.createGain();
+    o.type=type||'square'; o.frequency.value=f;
+    ga.gain.setValueAtTime(g||0.045,AC.currentTime);
+    ga.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);
+    o.connect(ga); ga.connect(AC.destination); o.start(); o.stop(AC.currentTime+d);
+  }catch(e){}
+}
+$('soundBtn').addEventListener('click',()=>{
+  soundOn=!soundOn;
+  $('soundBtn').textContent = soundOn?'🔊 ЗВУК: УВІМК':'🔇 ЗВУК: ВИМК';
+  if(soundOn) beep(880,.08,'sine',.04);
+});
+
+/* шкала довжини */
+(function(){
+  const s=$('pendScale');
+  for(let cm=0;cm<=130;cm+=5){
+    const t=document.createElement('div');
+    t.className='tick '+(cm%50===0?'maj':'min');
+    t.style.top=(cm/130*100)+'%';
+    if(cm%50===0){const e=document.createElement('em');e.textContent=cm;t.appendChild(e);}
+    s.appendChild(t);
+  }
+})();
+
+/* ── МАЯТНИК ── */
+const PIVOT_X=320, PIVOT_Y=56, PPM=290, TH0=8*Math.PI/180;
+const thread=$('thread'), bobEl=$('bob'), ring=$('flashRing'), arc=$('arcGuide');
+let L=1.00, N=30, running=false, t0=0, elapsed=0, completed=0, raf=null;
+
+function period(l){ return 2*Math.PI*Math.sqrt(l/G); }
+function bobPos(l,th){ const px=l*PPM; return [PIVOT_X+px*Math.sin(th), PIVOT_Y+px*Math.cos(th)]; }
+function drawPend(l,th){
+  const [x,y]=bobPos(l,th);
+  thread.setAttribute('x2',x); thread.setAttribute('y2',y);
+  bobEl.setAttribute('cx',x); bobEl.setAttribute('cy',y);
+}
+function drawArc(){
+  const r=L*PPM, a=TH0*1.25;
+  const [x1,y1]=bobPos(L,-a), [x2,y2]=bobPos(L,a);
+  arc.setAttribute('d',`M ${x1} ${y1} A ${r} ${r} 0 0 0 ${x2} ${y2}`);
+}
+function setLed(t,c){ $('ledTxt').textContent=t; $('ledDot').style.background=c; $('ledDot').style.boxShadow='0 0 8px '+c; }
+
+function readL(){
+  L=parseFloat($('lSlider').value);
+  $('lRead').textContent=fmtU(L,2)+' м';
+  $('lReadCm').textContent=Math.round(L*100)+' см';
+  document.querySelectorAll('.preset').forEach(b=>b.classList.toggle('on',Math.abs(parseFloat(b.dataset.l)-L)<0.001));
+  if(!running){ drawPend(L,TH0); drawArc(); }
+}
+$('lSlider').addEventListener('input',()=>{ if(running)return; readL(); markStep(1); });
+document.querySelectorAll('.preset').forEach(b=>b.addEventListener('click',()=>{ if(running)return; $('lSlider').value=b.dataset.l; readL(); }));
+document.querySelectorAll('.nsel button').forEach(b=>b.addEventListener('click',()=>{ if(running)return;
+  document.querySelectorAll('.nsel button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  N=+b.dataset.n; $('oscTarget').textContent=N; $('oscCount').textContent='0'; }));
+
+function flashBob(){
+  ring.setAttribute('cx',bobEl.getAttribute('cx')); ring.setAttribute('cy',bobEl.getAttribute('cy'));
+  ring.style.transition='none'; ring.style.opacity='0.9'; ring.setAttribute('r','15');
+  requestAnimationFrame(()=>{ ring.style.transition='all .45s ease-out'; ring.style.opacity='0'; ring.setAttribute('r','42'); });
+  if(!RM){ bobEl.classList.remove('bob-flash'); void bobEl.getBoundingClientRect(); bobEl.classList.add('bob-flash'); }
+  beep(1350,.04,'square',.02);
+  const oc=$('oscCount'); oc.classList.add('bump'); setTimeout(()=>oc.classList.remove('bump'),130);
+}
+function tickTimer(ts){
+  elapsed=(ts-t0)/1000;
+  $('timerTxt').textContent=fmtU(elapsed,2);
+  const T=period(L);
+  const n=Math.floor(elapsed/T);
+  if(n>completed){ completed=n; $('oscCount').textContent=completed; if(completed<=N) flashBob(); }
+  const th=TH0*Math.cos(2*Math.PI*elapsed/T);
+  drawPend(L,th);
+  if($('autoChk').checked && elapsed>=N*T){ stopTimer(true); return; }
+  if(running) raf=requestAnimationFrame(tickTimer);
+}
+$('startBtn').addEventListener('click',()=>{
+  if(running) return;
+  if(filledCount()>=5){ toast('Усі 5 вимірів уже в журналі. Скасуйте останній запис, щоб переміряти.'); return; }
+  running=true; completed=0; elapsed=0;
+  $('oscCount').textContent='0'; $('timerTxt').textContent='0,00';
+  $('startBtn').disabled=true; $('stopBtn').disabled=false;
+  $('lSlider').disabled=true; document.querySelectorAll('.preset,.nsel button').forEach(b=>b.disabled=true);
+  setLed('ЙДЕ КОЛИВАННЯ…','#7dffa9'); markStep(3);
+  beep(900,.05,'sine',.04);
+  t0=performance.now();
+  raf=requestAnimationFrame(tickTimer);
+});
+function stopTimer(auto){
+  running=false; cancelAnimationFrame(raf);
+  $('stopBtn').disabled=true;
+  const tStop = auto ? N*period(L) : elapsed;
+  $('timerTxt').textContent=fmtU(tStop,2);
+  const d = tStop - N*period(L);
+  if(!auto && d < -0.30){
+    setLed('ЗАРАНО — ТРИВАЙТЕ','#ffc75e');
+    toast('Зарано! Маятник зробив лише '+completed+' з '+N+' коливань. Чекайте спалаху №'+N+' і натисніть СТОП.');
+    running=true; $('stopBtn').disabled=false; raf=requestAnimationFrame(tickTimer);
+    return;
+  }
+  if(!auto && d > 0.30){
+    setLed('ЗАПІЗНО — ПОВТОРІТЬ','#ff6a4d');
+    toast('Запізно: пропущено момент N-го коливання. Натисніть «Скидання» і повторіть вимір.');
+    return;
+  }
+  const t=Math.round(tStop*100)/100;
+  setLed('СТОП · ЗАПИС У ЖУРНАЛ','#7dffa9');
+  beep(240,.12,'triangle',.08);
+  recordRow(L,N,t);
+  $('lastT').textContent=fmtU(t,2);
+  setTimeout(resetStand, 900);
+}
+$('stopBtn').addEventListener('click',()=>stopTimer(false));
+$('resetBtn').addEventListener('click',resetStand);
+function resetStand(){
+  running=false; cancelAnimationFrame(raf);
+  completed=0; $('oscCount').textContent='0'; $('timerTxt').textContent='0,00';
+  drawPend(L,TH0); drawArc();
+  $('startBtn').disabled = filledCount()>=5;
+  $('stopBtn').disabled=true;
+  $('lSlider').disabled=false; document.querySelectorAll('.preset,.nsel button').forEach(b=>b.disabled=false);
+  setLed('ГОТОВИЙ ДО ПУСКУ','#ffc75e');
+  if(filledCount()<5) markStep(filledCount()===0?1:2);
+}
+
+/* ── ЖУРНАЛ: усі поля редаговані ── */
+const rowOk=[false,false,false,false,false];
+(function buildRows(){
+  const tb=$('tbody');
+  for(let i=0;i<5;i++){
+    const tr=document.createElement('tr'); tr.dataset.i=i;
+    tr.innerHTML = `<td>${i+1}</td>`+
+      `<td class="m"><input class="l-in" inputmode="decimal" placeholder="?" aria-label="Довжина нитки"></td>`+
+      `<td class="m"><input class="n-in" inputmode="numeric" placeholder="?" aria-label="Кількість коливань"></td>`+
+      `<td class="m"><input class="t-in" inputmode="decimal" placeholder="?" aria-label="Час"></td>`+
+      `<td><input class="T-in" inputmode="decimal" placeholder="?" aria-label="Період"></td>`+
+      `<td><input class="g-in" inputmode="decimal" placeholder="?" aria-label="Прискорення"></td>`+
+      `<td><span class="st wait" data-st>—</span></td>`;
+    tb.appendChild(tr);
+  }
+})();
+function rowEls(i){ const tr=$('tbody').children[i];
+  return {tr,l:tr.querySelector('.l-in'),n:tr.querySelector('.n-in'),t:tr.querySelector('.t-in'),T:tr.querySelector('.T-in'),g:tr.querySelector('.g-in'),st:tr.querySelector('[data-st]')}; }
+function rowVals(i){
+  const e=rowEls(i);
+  const l=num(e.l.value), n=num(e.n.value), t=num(e.t.value);
+  return {e,l,n,t, hasT:e.t.value.trim()!=='',
+          valid: isFinite(l)&&l>0 && isFinite(n)&&n>=1 && isFinite(t)&&t>0};
+}
+function filledCount(){ let c=0; for(let i=0;i<5;i++){ if(rowVals(i).valid) c++; } return c; }
+function expected(l,n,t){ return {T:t/n, g:4*PI2*n*n*l/(t*t)}; }
+
+function recordRow(l,n,t){
+  let i=-1; for(let k=0;k<5;k++){ if(rowEls(k).t.value.trim()===''){i=k;break;} }
+  if(i<0) return;
+  const e=rowEls(i);
+  e.tr.classList.add('filled');
+  e.l.value=fmtU(l,2); e.n.value=n; e.t.value=fmtU(t,2);
+  e.T.value=''; e.g.value=''; e.T.className='T-in'; e.g.className='g-in';
+  rowOk[i]=false; e.st.textContent='…'; e.st.className='st wait';
+  $('measCount').textContent=filledCount();
+  $('undoBtn').disabled=false;
+  toast('Запис №'+(i+1)+': l = '+fmtU(l,2)+' м, N = '+n+', t = '+fmtU(t,2)+' с. Обчисліть T і g самостійно.');
+  markStep(4); drawChart(); progress();
+}
+$('undoBtn').addEventListener('click',()=>{
+  let i=-1; for(let k=4;k>=0;k--){ if(rowEls(k).t.value.trim()!==''){i=k;break;} }
+  if(i<0) return;
+  const e=rowEls(i);
+  e.tr.classList.remove('filled');
+  e.l.value=''; e.n.value=''; e.t.value=''; e.T.value=''; e.g.value='';
+  e.T.className='T-in'; e.g.className='g-in';
+  rowOk[i]=false; e.st.textContent='—'; e.st.className='st wait';
+  $('measCount').textContent=filledCount();
+  if(filledCount()===0) $('undoBtn').disabled=true;
+  $('startBtn').disabled=false;
+  drawChart(); progress();
+});
+
+/* будь-яка зміна полів таблиці скидає перевірку й оновлює все */
+$('tbody').addEventListener('input',e=>{
+  const tr=e.target.closest('tr'); if(!tr) return;
+  const i=+tr.dataset.i, el=rowEls(i), v=rowVals(i);
+  rowOk[i]=false;
+  el.T.classList.remove('ok','bad'); el.g.classList.remove('ok','bad');
+  el.st.textContent = v.hasT ? '…' : '—';
+  el.st.className = 'st wait';
+  if(v.hasT) el.tr.classList.add('filled'); else el.tr.classList.remove('filled');
+  $('measCount').textContent=filledCount();
+  $('undoBtn').disabled = filledCount()===0;
+  $('startBtn').disabled = running || filledCount()>=5;
+  drawChart(); progress();
+});
+
+$('checkCalcBtn').addEventListener('click',()=>{
+  let checked=0, okAll=0, msgs=[];
+  for(let i=0;i<5;i++){
+    const v=rowVals(i), e=v.e;
+    if(!v.hasT){ e.st.textContent='—'; e.st.className='st wait'; continue; }
+    if(!v.valid){ msgs.push('Рядок '+(i+1)+': перевірте l, N і t — це мають бути додатні числа (кома або крапка).');
+      e.st.textContent='?'; e.st.className='st wait'; continue; }
+    const st=num(e.T.value), sg=num(e.g.value);
+    if(e.T.value.trim()===''||e.g.value.trim()===''){ e.st.textContent='?'; e.st.className='st wait';
+      msgs.push('Рядок '+(i+1)+': заповніть обидва поля — T і g.'); continue; }
+    const ex=expected(v.l,v.n,v.t);
+    const okT=Math.abs(st-ex.T)<=0.012, okG=Math.abs(sg-ex.g)<=0.04;
+    e.T.className='T-in '+(okT?'ok':'bad'); e.g.className='g-in '+(okG?'ok':'bad');
+    checked++;
+    if(okT&&okG){ okAll++; rowOk[i]=true; e.st.textContent='✓'; e.st.className='st good'; }
+    else{
+      rowOk[i]=false; e.st.textContent='✗'; e.st.className='st err';
+      const bad=[]; if(!okT) bad.push('T ≈ '+fmtU(ex.T,2)+' с'); if(!okG) bad.push('g ≈ '+fmtU(ex.g,2)+' м/с²');
+      msgs.push('Рядок '+(i+1)+': перевірте — орієнтир '+bad.join(', ')+'.');
+    }
+  }
+  const m=$('calcMsg');
+  if(checked===0) m.textContent='Спершу внесіть виміри (l, N, t) та свої обчислення.';
+  else if(okAll===checked && filledCount()===5) m.innerHTML='<b style="color:var(--ok)">Усі розрахунки правильні! Переходьте до обробки результатів.</b>';
+  else if(okAll===checked) m.innerHTML='<b style="color:var(--ok)">Перевіренні ряди правильні. Продовжуйте виміри ('+filledCount()+' з 5).</b>';
+  else m.innerHTML=msgs.join('<br>');
+  beep(okAll===checked?1200:240,.08,'sine',.05);
+  drawChart(); progress();
+});
+
+/* графік T²(l) — за введеними даними */
+const cv=$('chart');
+function drawChart(){
+  const dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||600, h=cv.clientHeight||300;
+  cv.width=w*dpr; cv.height=h*dpr;
+  const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+  const mL=52,mR=16,mT=18,mB=40, pw=w-mL-mR, ph=h-mT-mB;
+  const pts=[];
+  for(let i=0;i<5;i++){ const v=rowVals(i); if(v.valid) pts.push({x:v.l,y:(v.t/v.n)**2}); }
+  ctx.font='10px IBM Plex Mono';
+  if(pts.length<2){ ctx.fillStyle='#3c4a66'; ctx.textAlign='center';
+    ctx.fillText('Щоб побудувати графік, потрібно щонайменше 2 виміри',w/2,h/2);
+    $('slopeVal').textContent='—'; $('gGraph').textContent='—'; return; }
+  const xmax=Math.max(1.1,Math.max(...pts.map(p=>p.x))*1.15);
+  const ymax=Math.max(...pts.map(p=>p.y))*1.3;
+  const X=v=>mL+v/xmax*pw, Y=v=>mT+ph-v/ymax*ph;
+  ctx.strokeStyle='rgba(43,84,166,.14)'; ctx.lineWidth=1;
+  for(let i=1;i<=4;i++){ ctx.beginPath(); ctx.moveTo(mL,mT+ph*i/4); ctx.lineTo(w-mR,mT+ph*i/4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mL+pw*i/4,mT); ctx.lineTo(mL+pw*i/4,mT+ph); ctx.stroke(); }
+  ctx.strokeStyle='#182742'; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(w-mR,mT+ph); ctx.stroke();
+  ctx.fillStyle='#182742'; ctx.textAlign='center';
+  for(let i=0;i<=4;i++) ctx.fillText(fmtU(xmax*i/4,2),X(xmax*i/4),mT+ph+16);
+  ctx.textAlign='right';
+  for(let i=0;i<=4;i++) ctx.fillText(fmtU(ymax*i/4,2),mL-8,Y(ymax*i/4)+3);
+  ctx.textAlign='center'; ctx.fillText('l, м',mL+pw/2,h-8);
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('T², с²',0,0); ctx.restore();
+  ctx.strokeStyle='rgba(46,125,79,.5)'; ctx.setLineDash([5,4]); ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(xmax),Y(4*PI2/G*xmax)); ctx.stroke(); ctx.setLineDash([]);
+  let sxy=0,sxx=0; pts.forEach(p=>{sxy+=p.x*p.y;sxx+=p.x*p.x;});
+  const slope=sxy/sxx, gFit=4*PI2/slope;
+  ctx.strokeStyle='#2b54a6'; ctx.lineWidth=2;
+  let ex=xmax, ey=slope*xmax; if(ey>ymax){ex=ymax/slope;ey=ymax;}
+  ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(ex),Y(ey)); ctx.stroke();
+  pts.forEach(p=>{ ctx.beginPath(); ctx.arc(X(p.x),Y(p.y),4.5,0,7); ctx.fillStyle='#c03a26'; ctx.fill();
+    ctx.strokeStyle='#f4efe2'; ctx.lineWidth=1.5; ctx.stroke(); });
+  ctx.fillStyle='#2b54a6'; ctx.font='600 12px IBM Plex Mono'; ctx.textAlign='left';
+  ctx.fillText('нахил = 4π²/g → g = '+fmtU(gFit,2)+' м/с²',mL+12,mT+14);
+  ctx.fillStyle='#2e7d4f'; ctx.fillText('— — теоретична (g = 9,81)',mL+12,mT+30);
+  $('slopeVal').textContent=fmtU(slope,2); $('gGraph').textContent=fmtU(gFit,2);
+}
+addEventListener('resize',()=>{drawChart();});
+
+/* ── ОБРОБКА ── */
+let procOk=false;
+$('checkProcBtn').addEventListener('click',()=>{
+  const vals=[];
+  for(let i=0;i<5;i++){ const v=rowVals(i); if(v.valid) vals.push(v); }
+  if(vals.length<2){ $('procMsg').textContent='Потрібно щонайменше 2 коректні виміри в таблиці.'; return; }
+  const mean=vals.reduce((a,v)=>a+expected(v.l,v.n,v.t).g,0)/vals.length;
+  const dev=Math.abs(mean-G), eps=dev/G*100;
+  const fm=$('pMean'), fd=$('pDev'), fe=$('pEps');
+  const vm=num(fm.value), vd=num(fd.value), ve=num(fe.value);
+  const okM=isFinite(vm)&&Math.abs(vm-mean)<=0.05;
+  const okD=isFinite(vd)&&Math.abs(vd-dev)<=0.05;
+  const okE=isFinite(ve)&&Math.abs(ve-eps)<=0.6;
+  fm.className=okM?'ok':'bad'; fd.className=okD?'ok':'bad'; fe.className=okE?'ok':'bad';
+  procOk=okM&&okD&&okE;
+  $('procMsg').innerHTML = procOk
+    ? '<b style="color:var(--ok)">Обробку перевірено: gсер ≈ '+fmtU(mean,2)+' м/с², Δg ≈ '+fmtU(dev,2)+' м/с², ε ≈ '+fmtU(eps,1)+' %. Переходьте до висновку!</b>'
+    : 'Перевірте значення. Орієнтир: gсер ≈ '+fmtU(mean,2)+' м/с², Δg ≈ '+fmtU(dev,2)+' м/с², ε ≈ '+fmtU(eps,1)+' %.';
+  $('liveProc').textContent = isFinite(ve)?fmtU(ve,1):'—';
+  beep(procOk?1200:240,.08,'sine',.05); progress();
+});
+
+/* висновок */
+$('conclText').addEventListener('input',()=>{
+  const n=$('conclText').value.trim().length;
+  const c=$('conclCount'); c.textContent=n+' / мінімум 80 символів';
+  c.classList.toggle('okc',n>=80); progress();
+});
+
+/* ── ТЕСТ ── */
+const QUIZ=[
+ {q:'Період математичного маятника визначається формулою:',o:['T = 2π√(l/g)','T = 2π√(g/l)','T = πl²/g','T = mg/l'],a:0,e:'Період зростає з довжиною як √l і зменшується з ростом g.'},
+ {q:'Робоча формула цієї лабораторної роботи:',o:['g = 4π²l/t','g = 4π²N²l/t²','g = t²/4π²N²l','g = 2πN/t'],a:1,e:'Отримана з T = 2π√(l/g) після підстановки T = t/N.'},
+ {q:'Математичний маятник — це…',o:['будь-яке тіло на пружині','матеріальна точка на невагомій нерозтяжній нитці','суцільний стрижень','кулька, що котиться по похилій'],a:1,e:'Це ідеалізована модель; реальний маятник наближається до неї за малої амплітуди й довгої нитки.'},
+ {q:'Період коливань маятника залежить від…',o:['маси кульки','довжини нитки та g; не залежить від маси, а для малих кутів — і від амплітуди','лише від маси','кольору кульки'],a:1,e:'Маса у формулу не входить; для малих кутів період не залежить від амплітуди (ізохронізм).'},
+ {q:'Чому вимірюють час N = 30 коливань, а не одного?',o:['щоб маятник розгойдався','щоб зменшити вплив часу реакції на похибку','щоб збільшити g','так вимагає формула'],a:1,e:'Похибка запуску/зупинки секундоміра ділиться на N: ΔT = Δt/N.'},
+ {q:'Якщо l = 1,00 м, а час 30 коливань становить 60,5 с, період дорівнює:',o:['60,5 с','0,495 с','≈ 2,02 с','3,05 с'],a:2,e:'T = t/N = 60,5/30 ≈ 2,02 с.'},
+ {q:'Якщо довжину нитки збільшити в 4 рази, період…',o:['збільшиться у 2 рази','збільшиться у 4 рази','не зміниться','зменшиться у 2 рази'],a:0,e:'T ∝ √l, отже √4 = 2.'},
+ {q:'На Місяці період такого самого маятника…',o:['не зміниться','збільшиться приблизно у 2,45 раза','зменшиться у 6 разів','стане нульовим'],a:1,e:'g на Місяці ушестеро менше; T ∝ 1/√g, тому T зросте у √6 ≈ 2,45 раза.'}
+];
+let answers=new Array(QUIZ.length).fill(null), quizOk=false;
+function renderQuiz(){
+  const box=$('quizBox'); box.innerHTML=''; answers.fill(null);
+  $('scoreCard').classList.remove('show');
+  QUIZ.forEach((item,i)=>{
+    const d=document.createElement('div'); d.className='quiz-q rv in';
+    let opts='';
+    item.o.forEach((o,j)=>{opts+='<button class="opt" data-q="'+i+'" data-o="'+j+'">'+String.fromCharCode(65+j)+') '+o+'</button>';});
+    d.innerHTML='<h4><span class="qn">'+(i+1)+'</span><span>'+item.q+'</span></h4>'+opts+'<div class="expl" id="ex'+i+'">'+item.e+'</div>';
+    box.appendChild(d);
+  });
+}
+$('quizBox').addEventListener('click',e=>{
+  const b=e.target.closest('.opt'); if(!b) return;
+  const qi=+b.dataset.q, oi=+b.dataset.o;
+  if(answers[qi]!==null) return;
+  answers[qi]=oi;
+  const card=b.closest('.quiz-q');
+  card.querySelectorAll('.opt').forEach(o=>{
+    o.disabled=true; const j=+o.dataset.o;
+    if(j===QUIZ[qi].a) o.classList.add('correct'); else if(j===oi) o.classList.add('wrong');
+  });
+  card.querySelector('.expl').classList.add('show');
+  beep(oi===QUIZ[qi].a?1200:240,.07,'sine',.04);
+  if(answers.every(a=>a!==null)) finishQuiz();
+});
+function finishQuiz(){
+  const score=answers.reduce((a,ans,i)=>a+(ans===QUIZ[i].a?1:0),0);
+  $('scoreNum').textContent=score;
+  let msg;
+  if(score===8) msg='Бездоганно! Теорію коливань засвоєно повністю.';
+  else if(score===7) msg='Чудовий результат — крок зараховано.';
+  else if(score>=5) msg='Непогано, але для зарахування потрібно 7–8 балів. Перегляньте пояснення і спробуйте ще.';
+  else msg='Радимо повернутися до розділу 02 «Теорія» і спробувати знову.';
+  $('scoreMsg').textContent=msg;
+  $('scoreCard').classList.add('show');
+  quizOk = score>=7; progress();
+}
+$('retryQuiz').addEventListener('click',()=>{renderQuiz(); quizOk=false; progress();});
+renderQuiz();
+
+/* ── калькулятор ── */
+const scr=$('calcScreen');
+function calcEval(){
+  let s=scr.value.replace(/,/g,'.').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-')
+    .replace(/π/g,'(3.14159265358979)').replace(/\^/g,'**').replace(/√\(/g,'Math.sqrt(');
+  const clean=s.replace(/Math\.sqrt/g,'');
+  if(!/^[0-9+\-*/(). ]+$/.test(clean)){ scr.value='помилка'; return; }
+  try{
+    const v=Function('"use strict";return('+s+')')();
+    if(!isFinite(v)) throw 0;
+    scr.value=String(Math.round(v*1e6)/1e6).replace('.',',');
+  }catch(e){ scr.value='помилка'; }
+}
+$('calcKeys').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const k=b.dataset.k;
+  beep(700,.025,'square',.02);
+  if(k==='C'){ scr.value='0'; return; }
+  if(k==='⌫'){ scr.value=scr.value.length>1?scr.value.slice(0,-1):'0'; return; }
+  if(k==='='){ calcEval(); return; }
+  if(scr.value==='0'||scr.value==='помилка') scr.value='';
+  scr.value+=k;
+});
+scr.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();calcEval();} });
+
+/* ── прогрес і кроки ── */
+function markStep(n){
+  document.querySelectorAll('.step').forEach(s=>{
+    const k=+s.dataset.step;
+    s.classList.toggle('cur',k===n);
+    s.classList.toggle('done',k<n);
+  });
+}
+markStep(1);
+let theorySeen=new Set(); const theoryBlks=[...document.querySelectorAll('.theory-blk')];
+let stamped=false;
+function progress(){
+  const okRows=rowOk.filter(Boolean).length;
+  $('liveN').textContent=filledCount(); $('liveOk').textContent=okRows;
+  const checks=[
+    theorySeen.size>=theoryBlks.length,
+    filledCount()>=5,
+    filledCount()===5 && okRows===5,
+    procOk,
+    $('conclText').value.trim().length>=80,
+    quizOk
+  ];
+  checks.forEach((v,i)=>$('p'+(i+1)).classList.toggle('done',v));
+  if(checks.every(Boolean)&&!stamped){
+    stamped=true;
+    $('stamp').classList.add('show');
+    beep(660,.12,'sine',.06); setTimeout(()=>beep(990,.18,'sine',.06),140);
+    toast('🎓 РОБОТУ ЗАРАХОВАНО! ЗАВАНТАЖТЕ ЗВІТ У PDF.',5000);
+  }
+}
+const io=new IntersectionObserver(es=>{
+  es.forEach(en=>{
+    if(en.isIntersecting){
+      en.target.classList.add('in');
+      if(theoryBlks.includes(en.target)) theorySeen.add(en.target);
+      progress(); io.unobserve(en.target);
+    }
+  });
+},{threshold:.15,rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.rv, .sec-head, .gbar').forEach(el=>io.observe(el));
+
+/* рейка */
+const marker=document.querySelector('.rail .marker');
+function rail(){
+  const max=document.documentElement.scrollHeight-innerHeight;
+  const pp=max>0?Math.min(1,scrollY/max):0;
+  marker.style.top=(pp*(innerHeight-40)+10)+'px';
+  $('railRead').textContent=Math.round(pp*130)+' см';
+}
+addEventListener('scroll',rail,{passive:true}); rail();
+
+/* ── ЗВІТ / PDF ── */
+const modal=$('reportModal');
+function buildReport(){
+  $('rName').textContent=$('studName').value.trim()||'_______________';
+  $('rGroup').textContent=$('studGroup').value.trim()||'____';
+  $('rDate').textContent=$('studDate').value.trim()||dStr;
+  $('rVar').textContent=$('studVar').value.trim()||'—';
+  const tb=$('rTable'); tb.innerHTML='';
+  let sum=0,cnt=0;
+  for(let i=0;i<5;i++){
+    const v=rowVals(i), tr=document.createElement('tr');
+    if(v.valid){
+      const ex=expected(v.l,v.n,v.t);
+      const sv=isFinite(num(v.e.T.value))?num(v.e.T.value):ex.T;
+      const sg=isFinite(num(v.e.g.value))?num(v.e.g.value):ex.g;
+      sum+=sg; cnt++;
+      tr.innerHTML=`<td>${i+1}</td><td>${fmtU(v.l,2)}</td><td>${fmtU(v.n,0)}</td><td>${fmtU(v.t,2)}</td><td>${fmtU(sv,2)}</td><td>${fmtU(sg,2)}</td>`;
+    } else {
+      tr.innerHTML=`<td>${i+1}</td><td colspan="5" style="color:#888">— не виконано —</td>`;
+    }
+    tb.appendChild(tr);
+  }
+  $('rCount').textContent=cnt||'—';
+  if(cnt>0){
+    const m=sum/cnt, dv=Math.abs(m-G), ep=dv/G*100;
+    $('rMean').textContent='gсер = '+fmtU(m,2)+' м/с²';
+    $('rDev').textContent='Δg = |gсер − 9,81| = '+fmtU(dv,2)+' м/с²';
+    $('rEps').textContent='ε = Δg/9,81 · 100% = '+fmtU(ep,1)+' %';
+  } else { ['rMean','rDev','rEps'].forEach(id=>$(id).textContent='—'); }
+  const c=$('conclText').value.trim();
+  $('rConcl').textContent=c||'Висновок не заповнено.';
+  drawChart();
+  try{ $('rChart').src=cv.toDataURL('image/png'); }catch(e){}
+}
+$('openReportBtn').addEventListener('click',()=>{ buildReport(); modal.classList.add('open'); document.body.style.overflow='hidden'; });
+$('closeReportBtn').addEventListener('click',()=>{ modal.classList.remove('open'); document.body.style.overflow=''; });
+modal.addEventListener('click',e=>{ if(e.target===modal){ modal.classList.remove('open'); document.body.style.overflow=''; } });
+$('printBtn').addEventListener('click',()=>window.print());
+$('pdfBtn').addEventListener('click',()=>{
+  if(typeof html2pdf==='undefined'){
+    toast('Бібліотека PDF недоступна (офлайн). Використайте кнопку «Друк» → «Зберегти як PDF».',5000);
+    return;
+  }
+  const name=($('studName').value.trim()||'student').replace(/\s+/g,'_');
+  $('pdfBtn').disabled=true; $('pdfBtn').textContent='⏳ ФОРМУЄТЬСЯ…';
+  html2pdf().set({
+    margin:[10,12,12,12],
+    filename:'Zvit_Lab3_'+name+'.pdf',
+    image:{type:'jpeg',quality:0.96},
+    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollY:0},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+    pagebreak:{mode:['css','legacy']}
+  }).from($('rpt')).save().then(()=>{
+    $('pdfBtn').disabled=false; $('pdfBtn').textContent='⬇ ЗАВАНТАЖИТИ PDF';
+    toast('Звіт збережено. Гарної оцінки!');
+  }).catch(()=>{
+    $('pdfBtn').disabled=false; $('pdfBtn').textContent='⬇ ЗАВАНТАЖИТИ PDF';
+    toast('Сталася помилка. Скористайтеся кнопкою «Друк» → «Зберегти як PDF».',5000);
+  });
+});
+
+/* старт */
+readL(); drawPend(L,TH0); drawArc(); drawChart();
+setTimeout(()=>{drawChart();},350);
+})();
+</script>
+</body>
+</html>
